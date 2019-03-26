@@ -1,0 +1,2 @@
+[![Build Status](https://dev.azure.com/jltconsulting/LinqExpressionExtension/_apis/build/status/DocumentDBRepo-CI?branchName=master)](https://dev.azure.com/jltconsulting/LinqExpressionExtension/_build/latest?definitionId=2?branchName=master)
+[![NuGet](http://img.shields.io/nuget/v/LinqExpressionExtension.svg)](https://www.nuget.org/packages/LinqExpressionExtension/)
