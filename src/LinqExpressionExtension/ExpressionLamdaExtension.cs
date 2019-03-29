@@ -6,11 +6,11 @@ namespace LinqExpressionExtension
 {
     public static class ExpressionLamdaExtension
     {
-        public static Expression<Func<TParam, TResult>> AndAlso<TParam, TResult>(this Expression<Func<TParam, TResult>> funcA, Expression<Func<TParam, TResult>> funcB)
+        public static Expression<Func<TParam, bool>> AndAlso<TParam>(this Expression<Func<TParam, bool>> funcA, Expression<Func<TParam, bool>> funcB)
         {
             var @params = funcA.Parameters.Zip(funcB.Parameters, (a, b) => (ParamA: a, ParamB: b)).ToArray();
 
-            return Expression.Lambda<Func<TParam, TResult>>(Expression.AndAlso(funcA.Body, Replace(funcB.Body, @params)), funcA.Parameters);
+            return Expression.Lambda<Func<TParam, bool>>(Expression.AndAlso(funcA.Body, Replace(funcB.Body, @params)), funcA.Parameters);
         }
 
         private static Expression Replace(Expression expression, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
@@ -53,6 +53,18 @@ namespace LinqExpressionExtension
                         return Expression.ArrayIndex(Replace(exp.Object, @params), exp.Arguments.Select(p => Replace(p, @params)));
                     }
 
+                case ExpressionType.Assign:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.Assign(Replace(exp.Left, @params), Replace(exp.Right, @params));
+                    }
+
+                case ExpressionType.Block:
+                    {
+                        var exp = (BlockExpression)expression;
+                        return Expression.Block(exp.Type, exp.Variables, exp.Expressions.Select(e => Replace(e, @params)));
+                    }
+
                 case ExpressionType.Call:
                     {
                         var exp = (MethodCallExpression)expression;
@@ -86,29 +98,6 @@ namespace LinqExpressionExtension
                         return Expression.GreaterThanOrEqual(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.IsLiftedToNull, exp.Method);
                     }
 
-                case ExpressionType.LessThanOrEqual:
-                    {
-                        var exp = (BinaryExpression)expression;
-                        return Expression.LessThanOrEqual(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.IsLiftedToNull, exp.Method);
-                    }
-
-                case ExpressionType.MemberAccess:
-                    {
-                        var exp = (MemberExpression)expression;
-                        return Expression.PropertyOrField(Replace(exp.Expression, @params), exp.Member.Name);
-                    }
-
-                case ExpressionType.Parameter:
-                    {
-                        foreach (var pair in @params)
-                        {
-                            if (expression == pair.ParamB)
-                                return pair.ParamA;
-                        }
-
-                        return expression;
-                    }
-
                 case ExpressionType.ConvertChecked:
                     {
                         var exp = (UnaryExpression)expression;
@@ -140,33 +129,186 @@ namespace LinqExpressionExtension
                     }
 
                 case ExpressionType.Invoke:
+                    {
+                        var exp = (InvocationExpression)expression;
+                        return Expression.Invoke(Replace(exp.Expression, @params), exp.Arguments.Select(arg => Replace(arg, @params)));
+                    }
+
                 case ExpressionType.Lambda:
+                    {
+                        var exp = (LambdaExpression)expression;
+                        return Expression.Lambda(exp.Type, Replace(exp.Body, @params), exp.Name, exp.TailCall, exp.Parameters);
+                    }
+
                 case ExpressionType.LeftShift:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.LeftShift(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.LessThan:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.LessThan(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.IsLiftedToNull, exp.Method);
+                    }
+
+                case ExpressionType.LessThanOrEqual:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.LessThanOrEqual(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.IsLiftedToNull, exp.Method);
+                    }
+
                 case ExpressionType.ListInit:
+                    {
+                        var exp = (ListInitExpression)expression;
+                        return exp.Update(exp.NewExpression, exp.Initializers.Select(i => Replace(i, @params)));
+                    }
+
+                case ExpressionType.MemberAccess:
+                    {
+                        var exp = (MemberExpression)expression;
+                        return Expression.PropertyOrField(Replace(exp.Expression, @params), exp.Member.Name);
+                    }
+
                 case ExpressionType.MemberInit:
+                    {
+                        var exp = (MemberInitExpression)expression;
+                        return Expression.MemberInit(exp.NewExpression, exp.Bindings.Select(m => Replace(m, @params)));
+                    }
+
                 case ExpressionType.Modulo:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.Modulo(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.Multiply:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.Multiply(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.MultiplyChecked:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.MultiplyChecked(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.Negate:
-                case ExpressionType.UnaryPlus:
+                    {
+                        var exp = (UnaryExpression)expression;
+                        return Expression.Negate(Replace(exp.Operand, @params), exp.Method);
+                    }
+
                 case ExpressionType.NegateChecked:
+                    {
+                        var exp = (UnaryExpression)expression;
+                        return Expression.NegateChecked(Replace(exp.Operand, @params), exp.Method);
+                    }
+
                 case ExpressionType.New:
-                case ExpressionType.NewArrayInit:
+                    {
+                        var exp = (NewExpression)expression;
+                        return exp.Members != null
+                                ? Expression.New(exp.Constructor, exp.Arguments.Select(a => Replace(a, @params)), exp.Members)
+                                : Expression.New(exp.Constructor, exp.Arguments.Select(a => Replace(a, @params)));
+                    }
+
                 case ExpressionType.NewArrayBounds:
+                    {
+                        var exp = (NewArrayExpression)expression;
+                        return Expression.NewArrayBounds(exp.Type, exp.Expressions.Select(e => Replace(e, @params)));
+                    }
+
+                case ExpressionType.NewArrayInit:
+                    {
+                        var exp = (NewArrayExpression)expression;
+                        return Expression.NewArrayInit(exp.Type, exp.Expressions.Select(e => Replace(e, @params)));
+                    }
+
                 case ExpressionType.Not:
+                    {
+                        var exp = (UnaryExpression)expression;
+                        return Expression.Not(Replace(exp.Operand, @params), exp.Method);
+                    }
+
                 case ExpressionType.NotEqual:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.NotEqual(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.IsLiftedToNull, exp.Method);
+                    }
+
                 case ExpressionType.Or:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.Or(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.OrElse:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.OrElse(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
+                case ExpressionType.Parameter:
+                    {
+                        foreach (var pair in @params)
+                        {
+                            if (expression == pair.ParamB)
+                                return pair.ParamA;
+                        }
+
+                        return expression;
+                    }
+
                 case ExpressionType.Power:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.Power(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.Quote:
+                    {
+                        var exp = (UnaryExpression)expression;
+                        return Expression.Quote(Replace(exp.Operand, @params));
+                    }
+
                 case ExpressionType.RightShift:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.RightShift(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.Subtract:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.Subtract(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.SubtractChecked:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.SubtractChecked(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.Method);
+                    }
+
                 case ExpressionType.TypeAs:
+                    {
+                        var exp = (UnaryExpression)expression;
+                        return Expression.TypeAs(Replace(exp.Operand, @params), exp.Type);
+                    }
+
                 case ExpressionType.TypeIs:
-                case ExpressionType.Assign:
-                case ExpressionType.Block:
+                    {
+                        var exp = (TypeBinaryExpression)expression;
+                        return Expression.TypeIs(Replace(exp.Expression, @params), exp.Type);
+                    }
+
+                case ExpressionType.UnaryPlus:
+                    {
+                        var exp = (UnaryExpression)expression;
+                        return Expression.UnaryPlus(Replace(exp.Operand, @params), exp.Method);
+                    }
+
                 case ExpressionType.DebugInfo:
                 case ExpressionType.Decrement:
                 case ExpressionType.Dynamic:
@@ -206,6 +348,38 @@ namespace LinqExpressionExtension
                 case ExpressionType.IsFalse:
                 default:
                     throw new Exception($"The expression type \"{expression.NodeType}\" is not currently support.");
+            }
+        }
+
+        private static ElementInit Replace(ElementInit init, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
+        {
+            return init.Update(init.Arguments.Select(a => Replace(a, @params)));
+        }
+
+        private static MemberBinding Replace(MemberBinding binding, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
+        {
+            switch (binding.BindingType)
+            {
+                case MemberBindingType.Assignment:
+                    {
+                        var assignment = (MemberAssignment)binding;
+                        return Expression.Bind(assignment.Member, Replace(assignment.Expression, @params));
+                    }
+
+                case MemberBindingType.ListBinding:
+                    {
+                        var listBinding = (MemberListBinding)binding;
+                        return Expression.ListBind(listBinding.Member, listBinding.Initializers.Select(i => Replace(i, @params)));
+                    }
+
+                case MemberBindingType.MemberBinding:
+                    {
+                        var memberBinding = (MemberMemberBinding)binding;
+                        return Expression.MemberBind(memberBinding.Member, memberBinding.Bindings.Select(b => Replace(b, @params)));
+                    }
+
+                default:
+                    throw new Exception($"The member binding type \"{binding.BindingType}\" is not currently support.");
             }
         }
     }
