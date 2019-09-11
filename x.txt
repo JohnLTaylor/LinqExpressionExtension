@@ -1,1 +1,1 @@
-/bin/bash: q: command not found
+q: command not found
