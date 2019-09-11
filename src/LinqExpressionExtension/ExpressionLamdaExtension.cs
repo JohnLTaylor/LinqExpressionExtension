@@ -15,6 +15,9 @@ namespace LinqExpressionExtension
 
         private static Expression Replace(Expression expression, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
         {
+            if (expression == default)
+                return expression;
+
             switch (expression.NodeType)
             {
                 case ExpressionType.Add:
@@ -92,16 +95,31 @@ namespace LinqExpressionExtension
                         return Expression.Convert(Replace(exp.Operand, @params), exp.Type, exp.Method);
                     }
 
-                case ExpressionType.GreaterThanOrEqual:
-                    {
-                        var exp = (BinaryExpression)expression;
-                        return Expression.GreaterThanOrEqual(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.IsLiftedToNull, exp.Method);
-                    }
-
                 case ExpressionType.ConvertChecked:
                     {
                         var exp = (UnaryExpression)expression;
                         return Expression.ConvertChecked(Replace(exp.Operand, @params), exp.Type, exp.Method);
+                    }
+
+                case ExpressionType.DebugInfo:
+                    return expression;
+
+                case ExpressionType.Decrement:
+                    {
+                        var exp = (UnaryExpression)expression;
+                        return Expression.Decrement(Replace(exp.Operand, @params), exp.Method);
+                    }
+
+                case ExpressionType.Dynamic:
+                    {
+                        var exp = (DynamicExpression)expression;
+                        return Expression.Dynamic(exp.Binder, exp.Type,  exp.Arguments.Select(e => Replace(e, @params)));
+                    }
+
+                case ExpressionType.GreaterThanOrEqual:
+                    {
+                        var exp = (BinaryExpression)expression;
+                        return Expression.GreaterThanOrEqual(Replace(exp.Left, @params), Replace(exp.Right, @params), exp.IsLiftedToNull, exp.Method);
                     }
 
                 case ExpressionType.Divide:
@@ -309,9 +327,6 @@ namespace LinqExpressionExtension
                         return Expression.UnaryPlus(Replace(exp.Operand, @params), exp.Method);
                     }
 
-                case ExpressionType.DebugInfo:
-                case ExpressionType.Decrement:
-                case ExpressionType.Dynamic:
                 case ExpressionType.Default:
                 case ExpressionType.Extension:
                 case ExpressionType.Goto:
