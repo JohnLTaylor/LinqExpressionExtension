@@ -13,6 +13,13 @@ namespace LinqExpressionExtension
             return Expression.Lambda<Func<TParam, bool>>(Expression.AndAlso(funcA.Body, Replace(funcB.Body, @params)), funcA.Parameters);
         }
 
+        public static Expression<Func<TParam, bool>> OrElse<TParam>(this Expression<Func<TParam, bool>> funcA, Expression<Func<TParam, bool>> funcB)
+        {
+            var @params = funcA.Parameters.Zip(funcB.Parameters, (a, b) => (ParamA: a, ParamB: b)).ToArray();
+
+            return Expression.Lambda<Func<TParam, bool>>(Expression.OrElse(funcA.Body, Replace(funcB.Body, @params)), funcA.Parameters);
+        }
+
         private static Expression Replace(Expression expression, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
         {
             if (expression == default)
