@@ -191,12 +191,13 @@ namespace LinqExpressionExtension
 
                 case ExpressionType.MemberAccess:
                     {
-                        if (expression == default)
+                        var exp = (MemberExpression)expression;
+
+                        if (exp.Expression == default)
                         {
-                            return expression;
+                            return exp;
                         }
 
-                        var exp = (MemberExpression)expression;
                         return Expression.PropertyOrField(Replace(exp.Expression, @params), exp.Member.Name);
                     }
 
