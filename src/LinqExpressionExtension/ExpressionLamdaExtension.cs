@@ -8,19 +8,24 @@ namespace LinqExpressionExtension
     {
         public static Expression<Func<TParam, bool>> AndAlso<TParam>(this Expression<Func<TParam, bool>> funcA, Expression<Func<TParam, bool>> funcB)
         {
-            var @params = funcA.Parameters.Zip(funcB.Parameters, (a, b) => (ParamA: a, ParamB: b)).ToArray();
+            var @params = funcA.Parameters.Zip(funcB.Parameters, (a, b) => (ParamA: (Expression)a, ParamB: (Expression)b)).ToArray();
 
             return Expression.Lambda<Func<TParam, bool>>(Expression.AndAlso(funcA.Body, Replace(funcB.Body, @params)), funcA.Parameters);
         }
 
         public static Expression<Func<TParam, bool>> OrElse<TParam>(this Expression<Func<TParam, bool>> funcA, Expression<Func<TParam, bool>> funcB)
         {
-            var @params = funcA.Parameters.Zip(funcB.Parameters, (a, b) => (ParamA: a, ParamB: b)).ToArray();
+            var @params = funcA.Parameters.Zip(funcB.Parameters, (a, b) => (ParamA: (Expression)a, ParamB: (Expression)b)).ToArray();
 
             return Expression.Lambda<Func<TParam, bool>>(Expression.OrElse(funcA.Body, Replace(funcB.Body, @params)), funcA.Parameters);
         }
 
-        private static Expression Replace(Expression expression, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
+        public static Expression Unwrap<TParam>(this Expression<Func<TParam, bool>> func, Expression param)
+        {
+            return Replace(func.Body, new (Expression, Expression)[] { (param, func.Parameters[0]) });
+        }
+
+        private static Expression Replace(Expression expression, (Expression ParamA, Expression ParamB)[] @params)
         {
             if (expression == default)
                 return expression;
@@ -379,12 +384,12 @@ namespace LinqExpressionExtension
             }
         }
 
-        private static ElementInit Replace(ElementInit init, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
+        private static ElementInit Replace(ElementInit init, (Expression ParamA, Expression ParamB)[] @params)
         {
             return init.Update(init.Arguments.Select(a => Replace(a, @params)));
         }
 
-        private static MemberBinding Replace(MemberBinding binding, (ParameterExpression ParamA, ParameterExpression ParamB)[] @params)
+        private static MemberBinding Replace(MemberBinding binding, (Expression ParamA, Expression ParamB)[] @params)
         {
             switch (binding.BindingType)
             {
